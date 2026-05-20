@@ -21,6 +21,9 @@ export class ArenaScene extends Phaser.Scene {
     this.marbleData = state.marbles;
     this.eliminationCount = 0;
     this.raceOver = false;
+    this.currentArenaRadius = ARENA_RADIUS;
+    this.shrinkActive = false;
+    this.shrinkPending = false;
 
     this.buildArena();
     this.buildBumpers();
@@ -34,21 +37,15 @@ export class ArenaScene extends Phaser.Scene {
     this.time.delayedCall(800, () => {
       this.launchMarbles();
       this.raceStartTime = this.time.now;
+      this.shrinkPending = true;
+      this.time.delayedCall(15000, () => this.startShrink());
     });
   }
 
   buildArena() {
-    const gfx = this.add.graphics();
-
-    // Arena floor
-    gfx.fillStyle(0x0a0a0a, 1);
-    gfx.fillCircle(ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS);
-
-    // Arena border ring (decorative)
-    gfx.lineStyle(6, 0xfc6b23, 1);
-    gfx.strokeCircle(ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS);
-    gfx.lineStyle(2, 0xfb009f, 0.5);
-    gfx.strokeCircle(ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS - 8);
+    this.arenaGfx = this.add.graphics();
+    this.wallBodies = [];
+    this.drawArenaVisuals(ARENA_RADIUS);
 
     // Circular physics wall using many static line segments
     const segments = WALL_SEGMENTS;
@@ -65,7 +62,7 @@ export class ArenaScene extends Phaser.Scene {
       const len = Phaser.Math.Distance.Between(x1, y1, x2, y2);
       const angle = Math.atan2(y2 - y1, x2 - x1);
 
-      this.matter.add.rectangle(midX, midY, len, 4, {
+      const body = this.matter.add.rectangle(midX, midY, len, 4, {
         isStatic: true,
         angle,
         friction: 0,
@@ -73,19 +70,31 @@ export class ArenaScene extends Phaser.Scene {
         label: 'wall',
         collisionFilter: { category: 0x0001, mask: 0x0002 },
       });
+      this.wallBodies.push(body);
     }
   }
 
+  drawArenaVisuals(r) {
+    this.arenaGfx.clear();
+    this.arenaGfx.fillStyle(0x0a0a0a, 1);
+    this.arenaGfx.fillCircle(ARENA_CENTER_X, ARENA_CENTER_Y, r);
+    this.arenaGfx.lineStyle(6, 0xfc6b23, 1);
+    this.arenaGfx.strokeCircle(ARENA_CENTER_X, ARENA_CENTER_Y, r);
+    this.arenaGfx.lineStyle(2, 0xfb009f, 0.5);
+    this.arenaGfx.strokeCircle(ARENA_CENTER_X, ARENA_CENTER_Y, r - 8);
+  }
+
   buildBumpers() {
-    const gfx = this.add.graphics();
+    this.bumperGfx = this.add.graphics();
+    this.bumperBody = null;
 
     for (const pos of BUMPER_POSITIONS) {
-      gfx.fillStyle(0x173dff, 1);
-      gfx.fillCircle(pos.x, pos.y, BUMPER_RADIUS);
-      gfx.lineStyle(3, 0x2afeff, 1);
-      gfx.strokeCircle(pos.x, pos.y, BUMPER_RADIUS);
+      this.bumperGfx.fillStyle(0x173dff, 1);
+      this.bumperGfx.fillCircle(pos.x, pos.y, BUMPER_RADIUS);
+      this.bumperGfx.lineStyle(3, 0x2afeff, 1);
+      this.bumperGfx.strokeCircle(pos.x, pos.y, BUMPER_RADIUS);
 
-      this.matter.add.circle(pos.x, pos.y, BUMPER_RADIUS, {
+      this.bumperBody = this.matter.add.circle(pos.x, pos.y, BUMPER_RADIUS, {
         isStatic: true,
         friction: 0,
         restitution: 1.1,
@@ -353,6 +362,37 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  startShrink() {
+    this.shrinkActive = true;
+    if (this.bumperBody) {
+      this.matter.world.remove(this.bumperBody);
+      this.bumperBody = null;
+    }
+    this.bumperGfx.setVisible(false);
+  }
+
+  updateArenaShrink() {
+    const SHRINK_RATE = 0.3; // px per frame (~18px/s at 60fps)
+    const MIN_RADIUS = 100;
+
+    this.currentArenaRadius = Math.max(MIN_RADIUS, this.currentArenaRadius - SHRINK_RATE);
+    const r = this.currentArenaRadius;
+
+    const Matter = Phaser.Physics.Matter.Matter;
+    for (let i = 0; i < WALL_SEGMENTS; i++) {
+      const a1 = (i / WALL_SEGMENTS) * Math.PI * 2;
+      const a2 = ((i + 1) / WALL_SEGMENTS) * Math.PI * 2;
+      const x1 = ARENA_CENTER_X + Math.cos(a1) * r;
+      const y1 = ARENA_CENTER_Y + Math.sin(a1) * r;
+      const x2 = ARENA_CENTER_X + Math.cos(a2) * r;
+      const y2 = ARENA_CENTER_Y + Math.sin(a2) * r;
+      Matter.Body.setPosition(this.wallBodies[i], { x: (x1 + x2) / 2, y: (y1 + y2) / 2 });
+      Matter.Body.setAngle(this.wallBodies[i], Math.atan2(y2 - y1, x2 - x1));
+    }
+
+    this.drawArenaVisuals(r);
+  }
+
   shatterEffect(x, y, color) {
     const count = 12;
     for (let i = 0; i < count; i++) {
@@ -515,7 +555,7 @@ export class ArenaScene extends Phaser.Scene {
       const dy = marble.body.position.y - ARENA_CENTER_Y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < ARENA_RADIUS - CONTACT_DEPTH) continue;
+      if (dist < this.currentArenaRadius - CONTACT_DEPTH) continue;
 
       const { x: vx, y: vy } = marble.body.velocity;
       this.matter.body.setVelocity(marble.body, {
@@ -526,7 +566,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   checkKillzone() {
-    const killRadius = ARENA_RADIUS + MARBLE_RADIUS + 20;
+    const killRadius = this.currentArenaRadius + MARBLE_RADIUS + 20;
     for (const marble of this.marbles) {
       if (!marble.data.alive) continue;
       const dx = marble.body.position.x - ARENA_CENTER_X;
@@ -543,6 +583,7 @@ export class ArenaScene extends Phaser.Scene {
     this.accelerateWallMarbles();
     this.checkKillzone();
     this.updatePerimeterObstacles();
+    if (this.shrinkActive) this.updateArenaShrink();
     this.renderMarbles();
     this.updateHUD();
   }
