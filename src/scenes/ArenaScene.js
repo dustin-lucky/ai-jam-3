@@ -179,7 +179,7 @@ export class ArenaScene extends Phaser.Scene {
         .setDisplaySize(MARBLE_RADIUS * 2, MARBLE_RADIUS * 2);
       this.marbleSprites.push(sprite);
 
-      this.marbles.push({ body, id: i, data: this.marbleData[i] });
+      this.marbles.push({ body, id: i, data: this.marbleData[i], visualAngle: 0, angularVel: 0 });
     }
 
     this.renderMarbles();
@@ -257,6 +257,12 @@ export class ArenaScene extends Phaser.Scene {
 
     this.applyDamage(marbleB, damageToB, hitBx, hitBy, dirA);
     this.applyDamage(marbleA, damageToA, hitAx, hitAy, dirB);
+
+    // Tangential spin kick from collision
+    const tanX = -ny, tanY = nx;
+    const relVTan = (vA.x - vB.x) * tanX + (vA.y - vB.y) * tanY;
+    marbleA.angularVel += relVTan * 0.06;
+    marbleB.angularVel -= relVTan * 0.06;
   }
 
   calcDamage(vel, speed, nx, ny) {
@@ -383,10 +389,15 @@ export class ArenaScene extends Phaser.Scene {
       this.shadowGraphics.fillStyle(0x000000, 0.3);
       this.shadowGraphics.fillCircle(x + 3, y + 3, MARBLE_RADIUS);
 
-      // Position sprite and darken tint as HP drops
+      // Position sprite, spin, and darken tint as HP drops
       sprite.setPosition(x, y);
-      const brightness = Math.floor(60 + hpFrac * 195);
-      sprite.setTint(Phaser.Display.Color.GetColor(brightness, brightness, brightness));
+      const v = marble.body.velocity;
+      const speed = Math.sqrt(v.x * v.x + v.y * v.y);
+      marble.angularVel = marble.angularVel * 0.995 + (speed / MARBLE_RADIUS) * 0.003;
+      marble.visualAngle += marble.angularVel;
+      sprite.setRotation(marble.visualAngle);
+      // const brightness = Math.floor(60 + hpFrac * 195);
+      // sprite.setTint(Phaser.Display.Color.GetColor(brightness, brightness, brightness));
     }
   }
 
