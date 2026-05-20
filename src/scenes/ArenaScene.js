@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { drawNeonRect } from '../game/drawStreaks.js';
 import {
   ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS,
   MARBLE_RADIUS, MARBLE_COUNT, MARBLE_MAX_HP,
@@ -40,13 +41,13 @@ export class ArenaScene extends Phaser.Scene {
     const gfx = this.add.graphics();
 
     // Arena floor
-    gfx.fillStyle(0x111122, 1);
+    gfx.fillStyle(0x0a0a0a, 1);
     gfx.fillCircle(ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS);
 
     // Arena border ring (decorative)
-    gfx.lineStyle(6, 0x334466, 1);
+    gfx.lineStyle(6, 0xfc6b23, 1);
     gfx.strokeCircle(ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS);
-    gfx.lineStyle(2, 0x556688, 0.5);
+    gfx.lineStyle(2, 0xfb009f, 0.5);
     gfx.strokeCircle(ARENA_CENTER_X, ARENA_CENTER_Y, ARENA_RADIUS - 8);
 
     // Circular physics wall using many static line segments
@@ -79,9 +80,9 @@ export class ArenaScene extends Phaser.Scene {
     const gfx = this.add.graphics();
 
     for (const pos of BUMPER_POSITIONS) {
-      gfx.fillStyle(0x3355aa, 1);
+      gfx.fillStyle(0x173dff, 1);
       gfx.fillCircle(pos.x, pos.y, BUMPER_RADIUS);
-      gfx.lineStyle(3, 0x6688ff, 1);
+      gfx.lineStyle(3, 0x2afeff, 1);
       gfx.strokeCircle(pos.x, pos.y, BUMPER_RADIUS);
 
       this.matter.add.circle(pos.x, pos.y, BUMPER_RADIUS, {
@@ -146,9 +147,9 @@ export class ArenaScene extends Phaser.Scene {
         { x: x + (-hw * cos -  hw * sin), y: y + (-hw * sin +  hw * cos) },
       ];
 
-      this.obstacleGraphics.fillStyle(0xc0392b, 1);
+      this.obstacleGraphics.fillStyle(0xf8050e, 1);
       this.obstacleGraphics.fillPoints(corners, true);
-      this.obstacleGraphics.lineStyle(2, 0xff6b6b, 1);
+      this.obstacleGraphics.lineStyle(2, 0xfb009f, 1);
       this.obstacleGraphics.strokePoints(corners, true);
     }
   }
@@ -156,7 +157,8 @@ export class ArenaScene extends Phaser.Scene {
 
   spawnMarbles() {
     this.marbles = [];
-    this.marbleGraphics = this.add.graphics();
+    this.shadowGraphics = this.add.graphics();
+    this.marbleSprites = [];
 
     for (let i = 0; i < MARBLE_COUNT; i++) {
       const angle = (i / MARBLE_COUNT) * Math.PI * 2;
@@ -173,10 +175,13 @@ export class ArenaScene extends Phaser.Scene {
         collisionFilter: { category: 0x0002, mask: 0x0001 | 0x0002 },
       });
 
+      const sprite = this.add.image(x, y, MARBLE_COLORS[i].key)
+        .setDisplaySize(MARBLE_RADIUS * 2, MARBLE_RADIUS * 2);
+      this.marbleSprites.push(sprite);
+
       this.marbles.push({ body, id: i, data: this.marbleData[i] });
     }
 
-    // Draw initial marble positions
     this.renderMarbles();
   }
 
@@ -330,7 +335,7 @@ export class ArenaScene extends Phaser.Scene {
     marble.data.alive = false;
     marble.data.eliminatedAt = ++this.eliminationCount;
 
-    // Remove physics body
+    this.marbleSprites[marble.id].setVisible(false);
     this.matter.world.remove(marble.body);
 
     // Shatter effect
@@ -363,39 +368,35 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   renderMarbles() {
-    this.marbleGraphics.clear();
+    this.shadowGraphics.clear();
 
     for (const marble of this.marbles) {
-      if (!marble.data.alive) continue;
+      const sprite = this.marbleSprites[marble.id];
+      if (!marble.data.alive) {
+        sprite.setVisible(false);
+        continue;
+      }
       const { x, y } = marble.body.position;
-      const def = MARBLE_COLORS[marble.id];
       const hpFrac = marble.data.hp / MARBLE_MAX_HP;
 
       // Shadow
-      this.marbleGraphics.fillStyle(0x000000, 0.3);
-      this.marbleGraphics.fillCircle(x + 3, y + 3, MARBLE_RADIUS);
+      this.shadowGraphics.fillStyle(0x000000, 0.3);
+      this.shadowGraphics.fillCircle(x + 3, y + 3, MARBLE_RADIUS);
 
-      // Body
-      this.marbleGraphics.fillStyle(def.color, 1);
-      this.marbleGraphics.fillCircle(x, y, MARBLE_RADIUS);
-
-      // Glint
-      this.marbleGraphics.fillStyle(def.glint, 0.7);
-      this.marbleGraphics.fillCircle(x - MARBLE_RADIUS * 0.35, y - MARBLE_RADIUS * 0.35, MARBLE_RADIUS * 0.28);
-
-      // HP crack overlay — darken as damaged
-      if (hpFrac < 0.6) {
-        this.marbleGraphics.fillStyle(0x000000, 0.5 * (1 - hpFrac));
-        this.marbleGraphics.fillCircle(x, y, MARBLE_RADIUS);
-      }
+      // Position sprite and darken tint as HP drops
+      sprite.setPosition(x, y);
+      const brightness = Math.floor(60 + hpFrac * 195);
+      sprite.setTint(Phaser.Display.Color.GetColor(brightness, brightness, brightness));
     }
   }
 
   buildHUD(state) {
     const hudX = 920;
-    this.add.rectangle(hudX, ARENA_CENTER_Y, 320, 620, 0x0d0d1f, 0.95).setOrigin(0, 0.5);
+    this.add.rectangle(hudX, ARENA_CENTER_Y, 320, 620, 0x0d0d0d, 0.95).setOrigin(0, 0.5);
+    const hudGlow = this.add.graphics();
+    drawNeonRect(hudGlow, hudX + 160, ARENA_CENTER_Y, 320, 620, 0x9500c6, 0.6);
     this.add.text(hudX + 160, ARENA_CENTER_Y - 290, 'MARBLES', {
-      fontSize: '13px', fontFamily: 'Segoe UI', color: '#888', letterSpacing: 4,
+      fontSize: '16px', fontFamily: 'Barlow Condensed', color: '#fbf4db', letterSpacing: 4,
     }).setOrigin(0.5);
 
     this.hpBars = [];
@@ -403,23 +404,23 @@ export class ArenaScene extends Phaser.Scene {
       const def = MARBLE_COLORS[i];
       const rowY = ARENA_CENTER_Y - 260 + i * 68;
 
-      this.add.circle(hudX + 24, rowY, 12, def.color);
-      this.add.text(hudX + 44, rowY - 8, def.name, {
-        fontSize: '13px', fontFamily: 'Segoe UI', color: '#ddd',
+      this.add.image(hudX + 32, rowY, def.key).setDisplaySize(38, 38);
+      this.add.text(hudX + 58, rowY - 16, def.name, {
+        fontSize: '15px', fontFamily: 'Barlow Condensed', color: '#fbf4db',
       });
 
       // HP bar background
-      this.add.rectangle(hudX + 44, rowY + 10, 240, 10, 0x222233).setOrigin(0, 0.5);
-      const bar = this.add.rectangle(hudX + 44, rowY + 10, 240, 10, def.color).setOrigin(0, 0.5);
+      this.add.rectangle(hudX + 58, rowY + 14, 216, 10, 0x222222).setOrigin(0, 0.5);
+      const bar = this.add.rectangle(hudX + 58, rowY + 14, 216, 10, def.color).setOrigin(0, 0.5);
       this.hpBars.push(bar);
     }
 
     // Wallet display
-    this.add.text(hudX + 160, ARENA_CENTER_Y + 275, 'WALLET', {
-      fontSize: '12px', fontFamily: 'Segoe UI', color: '#666', letterSpacing: 3,
+    this.add.text(hudX + 160, ARENA_CENTER_Y + 255, 'WALLET', {
+      fontSize: '15px', fontFamily: 'Barlow Condensed', color: '#fbf4db', letterSpacing: 3,
     }).setOrigin(0.5);
-    this.hudWalletText = this.add.text(hudX + 160, ARENA_CENTER_Y + 300, `$${state.wallet}`, {
-      fontSize: '24px', fontFamily: 'Segoe UI', color: '#2ecc71', fontStyle: 'bold',
+    this.hudWalletText = this.add.text(hudX + 160, ARENA_CENTER_Y + 278, `$${state.wallet}`, {
+      fontSize: '28px', fontFamily: 'Barlow Condensed', color: '#2afeff', fontStyle: 'bold',
     }).setOrigin(0.5);
   }
 

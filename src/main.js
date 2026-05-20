@@ -8,7 +8,7 @@ const config = {
   width: 1280,
   height: 720,
   parent: 'game-container',
-  backgroundColor: '#0a0a0f',
+  backgroundColor: '#000000',
   physics: {
     default: 'matter',
     matter: {

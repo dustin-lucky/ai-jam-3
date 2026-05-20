@@ -18,14 +18,14 @@ export const LAUNCH_SPEED_MIN = 200;
 export const LAUNCH_SPEED_MAX = 350;
 
 export const MARBLE_COLORS = [
-  { name: 'Ruby',     color: 0xe74c3c, glint: 0xff8a80 },
-  { name: 'Sapphire', color: 0x3498db, glint: 0x82cfff },
-  { name: 'Emerald',  color: 0x2ecc71, glint: 0x80ffb2 },
-  { name: 'Amber',    color: 0xf39c12, glint: 0xffd580 },
-  { name: 'Amethyst', color: 0x9b59b6, glint: 0xd7a8f0 },
-  { name: 'Obsidian', color: 0x2c3e50, glint: 0x7f8c8d },
-  { name: 'Pearl',    color: 0xecf0f1, glint: 0xffffff },
-  { name: 'Onyx',     color: 0xe67e22, glint: 0xffa040 },
+  { name: 'Gravy',   key: 'marble_gravy',   color: 0x173dff, glint: 0x2afeff },
+  { name: 'Chuff',   key: 'marble_chuff',   color: 0x4a0080, glint: 0xaa44ff },
+  { name: 'Spiggot', key: 'marble_spiggot', color: 0xb8860b, glint: 0xfde054 },
+  { name: 'Jeb',     key: 'marble_jeb',     color: 0x220066, glint: 0x9500c6 },
+  { name: 'Bunt',    key: 'marble_bunt',    color: 0x1a6e1a, glint: 0x4aff4a },
+  { name: 'Goose',   key: 'marble_goose',   color: 0xfde054, glint: 0xffffff },
+  { name: 'Mick',    key: 'marble_mick',    color: 0xf8050e, glint: 0xfc6b23 },
+  { name: 'Bud',     key: 'marble_bud',     color: 0x445566, glint: 0x99aabb },
 ];
 
 export const BUMPER_POSITIONS = [
