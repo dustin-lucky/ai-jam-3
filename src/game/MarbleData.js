@@ -12,7 +12,6 @@ export class GameState {
   reset() {
     this.bets = [];
     this.results = null;
-    this.roundNumber++;
   }
 
   placeBet(bet) {

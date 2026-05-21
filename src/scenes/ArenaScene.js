@@ -25,6 +25,13 @@ export class ArenaScene extends Phaser.Scene {
     this.shrinkActive = false;
     this.shrinkPending = false;
 
+    const musicMenu   = this.registry.get('musicMenu');
+    const musicBattle = this.registry.get('musicBattle');
+    if (musicMenu?.isPlaying)    musicMenu.stop();
+    if (!musicBattle?.isPlaying) musicBattle.play();
+
+    this.marbleClinkTimes = {};
+
     this.buildArena();
     this.buildBumpers();
     this.buildPerimeterObstacles();
@@ -219,9 +226,27 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
+  playClinkSound(bodyA, bodyB) {
+    const COOLDOWN = 200;
+    const now = this.time.now;
+
+    const ids = [];
+    if (bodyA.label?.startsWith('marble_')) ids.push(parseInt(bodyA.label.split('_')[1]));
+    if (bodyB.label?.startsWith('marble_')) ids.push(parseInt(bodyB.label.split('_')[1]));
+
+    // Only play if at least one involved marble is off cooldown
+    if (!ids.some(id => now - (this.marbleClinkTimes[id] ?? 0) >= COOLDOWN)) return;
+    ids.forEach(id => { this.marbleClinkTimes[id] = now; });
+
+    const detune = Phaser.Math.Between(-300, 300);
+    this.sound.play('glass_clink', { volume: 0.25, detune });
+  }
+
   handleCollision(bodyA, bodyB, pair) {
     const aIsMarble = bodyA.label?.startsWith('marble_');
     const bIsMarble = bodyB.label?.startsWith('marble_');
+
+    if (aIsMarble || bIsMarble) this.playClinkSound(bodyA, bodyB);
 
     if (!aIsMarble || !bIsMarble) return;
 
@@ -353,7 +378,7 @@ export class ArenaScene extends Phaser.Scene {
     this.marbleSprites[marble.id].setVisible(false);
     this.matter.world.remove(marble.body);
 
-    // Shatter effect
+    this.sound.play('shatter', { volume: 0.7 });
     this.shatterEffect(marble.body.position.x, marble.body.position.y, marble.data.color);
 
     const alive = this.marbles.filter(m => m.data.alive);
@@ -500,6 +525,7 @@ export class ArenaScene extends Phaser.Scene {
         .map(m => m.id),
     };
 
+    state.roundNumber++;
     const winnings = state.settleBets(state.results);
 
     this.time.delayedCall(500, () => {

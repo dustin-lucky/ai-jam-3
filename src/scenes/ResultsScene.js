@@ -18,6 +18,11 @@ export class ResultsScene extends Phaser.Scene {
     this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0, 0);
     drawLightStreaks(this);
 
+    const musicBattle = this.registry.get('musicBattle');
+    const musicMenu   = this.registry.get('musicMenu');
+    if (musicBattle?.isPlaying) musicBattle.stop();
+    if (!musicMenu?.isPlaying)  musicMenu.play();
+
     // Winner announcement
     const winnerDef = results.winnerId >= 0 ? MARBLE_COLORS[results.winnerId] : null;
 
@@ -94,7 +99,7 @@ export class ResultsScene extends Phaser.Scene {
       fontSize: '22px', fontFamily: 'Barlow Condensed', color: '#000000', fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    btn.on('pointerdown', () => this.scene.start('BettingScene'));
+    btn.on('pointerdown', () => { this.sound.play('button_click', { volume: 0.6 }); this.scene.start('BettingScene'); });
     btn.on('pointerover', () => btn.setFillStyle(0xfb009f));
     btn.on('pointerout', () => btn.setFillStyle(0xfc6b23));
   }

@@ -17,6 +17,11 @@ export class BettingScene extends Phaser.Scene {
     for (const def of MARBLE_COLORS) {
       this.load.image(def.key, `/marbles/${def.name.toLowerCase()}.png`);
     }
+    this.load.audio('menu_music',   '/sounds/menu_music.mp3');
+    this.load.audio('battle_music', '/sounds/battle_music.mp3');
+    this.load.audio('button_click', '/sounds/button_click.mp3');
+    this.load.audio('glass_clink',  '/sounds/glass_clink.mp3');
+    this.load.audio('shatter',      '/sounds/shatter.mp3');
   }
 
   create() {
@@ -33,6 +38,16 @@ export class BettingScene extends Phaser.Scene {
     this.selectedBetType = BET_TYPES[0];
     this.selectedMarbleIndex = 0;
     this.betAmount = 50;
+
+    // Create canonical music objects once; reuse them every round via registry
+    if (!this.registry.get('musicMenu')) {
+      this.registry.set('musicMenu',  this.sound.add('menu_music',   { loop: true, volume: 0.4 }));
+      this.registry.set('musicBattle', this.sound.add('battle_music', { loop: true, volume: 0.5 }));
+    }
+    const musicBattle = this.registry.get('musicBattle');
+    const musicMenu   = this.registry.get('musicMenu');
+    if (musicBattle.isPlaying) musicBattle.stop();
+    if (!musicMenu.isPlaying)  musicMenu.play();
 
     this.buildUI(state);
   }
@@ -91,7 +106,7 @@ export class BettingScene extends Phaser.Scene {
         fontSize: '15px', fontFamily: 'Barlow Condensed', color: '#fbf4db',
       }).setOrigin(0.5);
 
-      bg.on('pointerdown', () => this.selectMarble(i));
+      bg.on('pointerdown', () => { this.playClick(); this.selectMarble(i); });
       bg.on('pointerover', () => { if (this.selectedMarbleIndex !== i) bg.setFillStyle(0x1a1a1a); });
       bg.on('pointerout', () => { if (this.selectedMarbleIndex !== i) bg.setFillStyle(0x111111); });
 
@@ -119,7 +134,7 @@ export class BettingScene extends Phaser.Scene {
         fontSize: '17px', fontFamily: 'Barlow Condensed', color: '#fbf4db',
       }).setOrigin(0.5);
 
-      bg.on('pointerdown', () => this.selectBetType(i));
+      bg.on('pointerdown', () => { this.playClick(); this.selectBetType(i); });
       bg.on('pointerover', () => { if (this.selectedBetType !== bt) bg.setFillStyle(0x1a1a1a); });
       bg.on('pointerout', () => { if (this.selectedBetType !== bt) bg.setFillStyle(0x111111); });
 
@@ -148,7 +163,7 @@ export class BettingScene extends Phaser.Scene {
         fontSize: '18px', fontFamily: 'Barlow Condensed', color: '#fbf4db', fontStyle: 'bold',
       }).setOrigin(0.5);
 
-      bg.on('pointerdown', () => this.selectAmount(amt, i));
+      bg.on('pointerdown', () => { this.playClick(); this.selectAmount(amt, i); });
       bg.on('pointerover', () => { if (this.betAmount !== amt) bg.setFillStyle(0x1a1a1a); });
       bg.on('pointerout', () => { if (this.betAmount !== amt) bg.setFillStyle(0x111111); });
 
@@ -173,7 +188,7 @@ export class BettingScene extends Phaser.Scene {
       fontSize: '19px', fontFamily: 'Barlow Condensed', color: '#000000', fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    addBetBg.on('pointerdown', () => this.addBet(state));
+    addBetBg.on('pointerdown', () => { this.playClick(); this.addBet(state); });
     addBetBg.on('pointerover', () => addBetBg.setFillStyle(0xfb009f));
     addBetBg.on('pointerout', () => addBetBg.setFillStyle(0xfc6b23));
 
@@ -279,7 +294,12 @@ export class BettingScene extends Phaser.Scene {
     });
   }
 
+  playClick() {
+    this.sound.play('button_click', { volume: 0.6 });
+  }
+
   startRace() {
+    this.playClick();
     this.scene.start('ArenaScene');
   }
 }
